@@ -1,0 +1,16 @@
+name: aoi
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - python=3.8
+  - opencv
+  - pyside2
+  - imutils
+  - scikit-learn
+  - scikit-image
+  - pytesseract
+  - omegaconf
+  - pip
+  - pip:
+      - pypylon

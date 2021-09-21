@@ -1,0 +1,7 @@
+datalog:
+  enable: True
+  raw_location: ./log/raw_images
+  result_location: ./log/result_images
+  result_ocr: ./log/result_OCR
+testing_options:
+  post_processing: True
