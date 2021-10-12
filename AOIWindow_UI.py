@@ -164,7 +164,7 @@ class Ui_MainWindow(object):
         self.labelInspectionResult.setStyleSheet("background-color: rgb(255, 255, 0);")
         self.labelInspectionResult.setObjectName("labelInspectionResult")
         self.labelTestTime = QtWidgets.QLabel(self.groupBox_3)
-        self.labelTestTime.setGeometry(QtCore.QRect(150, 270, 281, 51))
+        self.labelTestTime.setGeometry(QtCore.QRect(20, 270, 411, 51))
         font = QtGui.QFont()
         font.setPointSize(18)
         font.setBold(True)
@@ -193,12 +193,6 @@ class Ui_MainWindow(object):
         font.setPointSize(18)
         self.labelInspectionResultInfo.setFont(font)
         self.labelInspectionResultInfo.setObjectName("labelInspectionResultInfo")
-        self.labelTestTimeInfo = QtWidgets.QLabel(self.groupBox_3)
-        self.labelTestTimeInfo.setGeometry(QtCore.QRect(20, 270, 121, 51))
-        font = QtGui.QFont()
-        font.setPointSize(18)
-        self.labelTestTimeInfo.setFont(font)
-        self.labelTestTimeInfo.setObjectName("labelTestTimeInfo")
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -233,7 +227,7 @@ class Ui_MainWindow(object):
         self.labelMisplacementInfo.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:18pt; font-weight:600;\">Misplacement</span></p></body></html>"))
         self.labelBacklitAbsenceInfo.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:18pt; font-weight:600;\">Missing Backlit</span></p></body></html>"))
         self.labelInspectionResultInfo.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-weight:600;\">Result</span></p></body></html>"))
-        self.labelTestTimeInfo.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:18pt; font-weight:600;\">Test Time</span></p></body></html>"))
+
 
 if __name__ == "__main__":
     import sys

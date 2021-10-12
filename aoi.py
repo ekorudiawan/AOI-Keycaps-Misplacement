@@ -60,8 +60,8 @@ class AutomatedOpticalInspection(AOIWindow_UI.Ui_MainWindow, QMainWindow):
         self.inspector = AOIInspector(post_processing=self.post_processing)
         self.inspector.send_image_signal.connect(self.update_image)
         self.inspector.save_raw_image_signal.connect(self.save_raw_image)
-        self.inspector.save_result_image_signal.connect(self.save_result_image)
-        self.inspector.save_result_OCR_signal.connect(self.save_result_OCR)
+        self.inspector.log_result_image_signal.connect(self.save_result_image)
+        self.inspector.log_result_signal.connect(self.save_result)
         self.inspector.inspection_result_signal.connect(
             self.update_inspection_result)
         self.inspector.misplacement_result_signal.connect(
@@ -130,7 +130,6 @@ class AutomatedOpticalInspection(AOIWindow_UI.Ui_MainWindow, QMainWindow):
 
     @Slot(np.ndarray)
     def update_image(self, frame):
-        print("Update Image")
         h, w, c = frame.shape
         image = QImage(frame.data, w, h, 3*w, QImage.Format_RGB888)
         pixmap = QPixmap(image)
@@ -155,15 +154,15 @@ class AutomatedOpticalInspection(AOIWindow_UI.Ui_MainWindow, QMainWindow):
             print("Save result ", filename)
 
     @Slot(list)
-    def save_result_OCR(self, list_string):
+    def save_result(self, list_string):
         if self.enable_logging:
             filename = os.path.join(
-                self.conf['datalog']['result_ocr'], str(self.counter+1)+".txt")
+                self.conf['datalog']['testing_result'], str(self.counter+1)+".txt")
             with open(filename, 'w') as f:
-                for OCR_text in list_string:
-                    f.write(OCR_text)
+                for text in list_string:
+                    f.write(text)
                     f.write('\n')
-            print("Save text OCR ", filename)
+            print("Save log result ", filename)
 
     @Slot(int)
     def update_progress_bar(self, value):
@@ -217,6 +216,8 @@ class CameraHandler(QThread, QObject):
 
     def __init__(self) -> None:
         super(CameraHandler, self).__init__()
+        self.conf = OmegaConf.load('./config/config.yaml')
+        self.camera_mode = self.conf['camera_mode']
         self.converter = py.ImageFormatConverter()
         self.converter.OutputPixelFormat = py.PixelType_BGR8packed
         self.converter.OutputBitAlignment = py.OutputBitAlignment_MsbAligned
@@ -228,64 +229,71 @@ class CameraHandler(QThread, QObject):
 
     @Slot(int)
     def open_camera(self, id):
-        print("Open camera")
-        self.tlf = py.TlFactory.GetInstance()
-        self.list_devices = self.tlf.EnumerateDevices()
-        cam_dev = self.list_devices[id]
-        self.cam = py.InstantCamera(self.tlf.CreateDevice(cam_dev))
+        if self.camera_mode:
+            print("Open camera")
+            self.tlf = py.TlFactory.GetInstance()
+            self.list_devices = self.tlf.EnumerateDevices()
+            cam_dev = self.list_devices[id]
+            self.cam = py.InstantCamera(self.tlf.CreateDevice(cam_dev))
 
-        try:
-            self.cam.Open()
-        except:
-            print("Error open camera !")
-        if self.cam.IsOpen():
             try:
-                self.cam.TriggerMode.SetValue("On")
-                self.cam.TriggerSelector.SetValue("FrameStart")
-                self.cam.TriggerSource.SetValue("Software")
-                self.cam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
+                self.cam.Open()
             except:
-                print("Camera grabber error !")
+                print("Error open camera !")
+            if self.cam.IsOpen():
+                try:
+                    self.cam.TriggerMode.SetValue("On")
+                    self.cam.TriggerSelector.SetValue("FrameStart")
+                    self.cam.TriggerSource.SetValue("Software")
+                    self.cam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
+                except:
+                    print("Camera grabber error !")
 
     @Slot()
     def close_camera(self):
-        print("Close camera")
-        if self.cam != None:
-            if self.cam.IsGrabbing():
-                self.cam.StopGrabbing()
-            if self.cam.IsOpen():
-                self.cam.Close()
+        if self.camera_mode:
+            print("Close camera")
+            if self.cam != None:
+                if self.cam.IsGrabbing():
+                    self.cam.StopGrabbing()
+                if self.cam.IsOpen():
+                    self.cam.Close()
 
     # Setelah image diperoleh dikirimkan ke main window
     @Slot()
     def grab_image(self):
-        print("Grab image")
-        if self.cam.IsGrabbing():
-            print("Eksekusi")
-            self.cam.ExecuteSoftwareTrigger()
-            grab = self.cam.RetrieveResult(
-                5000, py.TimeoutHandling_ThrowException)
-            if grab.GrabSucceeded():
-                print("Grab success")
-                img = self.converter.Convert(grab)
-                grab.Release()
-                bgr_img = img.GetArray()
-                h,  w = bgr_img.shape[:2]
-                new_cam_mtx, roi = cv.getOptimalNewCameraMatrix(
-                    self.mtx, self.dist, (w, h), 1, (w, h))
-                undistort_img = cv.undistort(
-                    bgr_img, self.mtx, self.dist, None, new_cam_mtx)
-                test_img = imutils.rotate(undistort_img, angle=180).copy()
-                self.send_image_signal.emit(test_img)
-            else:
-                print("Grab failed")
+        if self.camera_mode:
+            print("Grab image")
+            if self.cam.IsGrabbing():
+                self.cam.ExecuteSoftwareTrigger()
+                grab = self.cam.RetrieveResult(
+                    5000, py.TimeoutHandling_ThrowException)
+                if grab.GrabSucceeded():
+                    print("Grab success")
+                    img = self.converter.Convert(grab)
+                    grab.Release()
+                    bgr_img = img.GetArray()
+                    h,  w = bgr_img.shape[:2]
+                    new_cam_mtx, roi = cv.getOptimalNewCameraMatrix(
+                        self.mtx, self.dist, (w, h), 1, (w, h))
+                    undistort_img = cv.undistort(
+                        bgr_img, self.mtx, self.dist, None, new_cam_mtx)
+                    test_img = imutils.rotate(undistort_img, angle=180).copy()
+                    self.send_image_signal.emit(test_img)
+                else:
+                    print("Grab failed")
+        else:
+            cwd = os.getcwd()
+            filename = os.path.join(cwd, "./dummy-images/12.png")
+            test_img = cv.imread(filename)
+            self.send_image_signal.emit(test_img)
 
 
 class AOIInspector(QThread, QObject):
     send_image_signal = Signal(np.ndarray)
     save_raw_image_signal = Signal(np.ndarray)
-    save_result_image_signal = Signal(np.ndarray)
-    save_result_OCR_signal = Signal(list)
+    log_result_image_signal = Signal(np.ndarray)
+    log_result_signal = Signal(list)
     inspection_result_signal = Signal(bool)
     misplacement_result_signal = Signal(int)
     missing_backlit_result_signal = Signal(int)
@@ -296,11 +304,16 @@ class AOIInspector(QThread, QObject):
 
     def __init__(self, post_processing=False):
         super(AOIInspector, self).__init__()
-        with open('OCR.npy', 'rb') as f:
-            self.ROIs = np.load(f)
+        # Load ROI
+        with open('ROI.npy', 'rb') as f:
+            self.ROI = np.load(f)
+        # Load Backlit Template
+        with open('backlit.npy', 'rb') as f:
+            self.backlit_template = np.load(f)
         self.post_processing = post_processing
         self.red_color = (0, 0, 255)
         self.green_color = (0, 255, 0)
+
         self.threshold_OCR = [145, 149, 147, 147, 147,
                               142, 143, 140, 138, 147,
                               140, 140, 150, 145, 145,
@@ -321,6 +334,8 @@ class AOIInspector(QThread, QObject):
                              "DIS", "SMTHCUT", "STOP/PLAY", "IN", "OUT",
                              "SHTL", "JOG", "SCRL"]
 
+        self.threshold_backlit = 0.14
+
     def set_test_image(self, test_img):
         self.test_img = test_img
 
@@ -334,77 +349,111 @@ class AOIInspector(QThread, QObject):
         test_img_gray = cv.cvtColor(self.test_img, cv.COLOR_BGR2GRAY)
         fail_number = 0
         pass_number = 0
-        list_result_OCR = []
-        for i in range(0, 43):
-            x = self.ROIs[i][0]
-            y = self.ROIs[i][1]
-            w = self.ROIs[i][2]
-            h = self.ROIs[i][3]
+        missing_backlit = 0
+        missplacement = 0
+        n_ocr_text = len(self.correct_text)
+        list_result = []
+
+        for i in range(0, self.ROI.shape[0]):
+            x = self.ROI[i][0]
+            y = self.ROI[i][1]
+            w = self.ROI[i][2]
+            h = self.ROI[i][3]
 
             start_point = (x, y)
             end_point = (x+w, y+h)
             roi_img = test_img_gray[y:y+h, x:x+w].copy()
-            roi_img = cv.resize(roi_img, None, fx=8, fy=8,
-                                interpolation=cv.INTER_CUBIC)
-            kernel = np.ones((3, 3), np.uint8)
-            roi_img = cv.dilate(roi_img, kernel, iterations=4)
-            roi_img = cv.erode(roi_img, kernel, iterations=1)
 
-            custom_config = r'--oem 3 --psm 6'
+            # Check OCR
+            if i < n_ocr_text:
+                roi_img = cv.resize(roi_img, None, fx=8, fy=8,
+                                    interpolation=cv.INTER_CUBIC)
+                kernel = np.ones((3, 3), np.uint8)
+                roi_img = cv.dilate(roi_img, kernel, iterations=4)
+                roi_img = cv.erode(roi_img, kernel, iterations=1)
 
-            if i < 38:
-                _, binary_img = cv.threshold(
-                    roi_img, self.threshold_OCR[i], 255, cv.THRESH_BINARY_INV)
-                text = pytesseract.image_to_string(
-                    binary_img, config=custom_config)
-                text = text.replace(" ", "")
-                text = text.replace("\r", "")
-                text = text.replace("\n", "")
-                text = text.strip()
-                if self.post_processing:
-                    text = text.capitalize()
+                custom_config = r'--oem 3 --psm 6'
 
-                list_result_OCR.append(str(i) + ":" + text)
-                if text == self.correct_text[i]:
-                    cv.rectangle(result_img, start_point, end_point,
-                                 self.green_color, thickness=2)
-                    pass_number = pass_number + 1
+                # Black Caps
+                if i < 38:
+                    _, binary_img = cv.threshold(
+                        roi_img, self.threshold_OCR[i], 255, cv.THRESH_BINARY_INV)
+                    text = pytesseract.image_to_string(
+                        binary_img, config=custom_config)
+                    text = text.replace(" ", "")
+                    text = text.replace("\r", "")
+                    text = text.replace("\n", "")
+                    text = text.strip()
+                    if self.post_processing:
+                        text = text.capitalize()
+
+                    if text == self.correct_text[i]:
+                        cv.rectangle(result_img, start_point, end_point,
+                                     self.green_color, thickness=2)
+                        pass_number = pass_number + 1
+                    else:
+                        cv.rectangle(result_img, start_point,
+                                     end_point, self.red_color, thickness=2)
+                        fail_number = fail_number + 1
+                        missplacement += 1
+
+                # White Caps
                 else:
-                    cv.rectangle(result_img, start_point,
-                                 end_point, self.red_color, thickness=2)
-                    fail_number = fail_number + 1
+                    _, binary_img = cv.threshold(
+                        roi_img, self.threshold_OCR[i], 255, cv.THRESH_BINARY)
+                    text = pytesseract.image_to_string(
+                        binary_img, config=custom_config)
+                    text = text.replace(" ", "")
+                    text = text.replace("\r", "")
+                    text = text.replace("\n", "")
+                    text = text.strip()
+                    if self.post_processing:
+                        text = text.capitalize()
+                    if text == self.correct_text[i]:
+                        cv.rectangle(result_img, start_point,
+                                     end_point, self.green_color, thickness=2)
+                        pass_number += 1
+                    else:
+                        cv.rectangle(result_img, start_point,
+                                     end_point, self.red_color, thickness=2)
+                        fail_number += 1
+                        missplacement += 1
+                log_text = "ROI " + str(i) + " OCR : " + text
+            # Check Backlit
+            else:
+                roi_img = cv.resize(roi_img, (100, 100))
+                roi_histogram = cv.calcHist(
+                    [roi_img], [0], None, [256], [0, 256])
+                norm_roi_histogram = roi_histogram/np.sum(roi_histogram)
+                # Calc cosine distance
+                dist = distance.cosine(
+                    self.backlit_template[i-n_ocr_text], norm_roi_histogram)
 
-            elif i >= 38 and i < 43:
-                _, binary_img = cv.threshold(
-                    roi_img, self.threshold_OCR[i], 255, cv.THRESH_BINARY)
-                text = pytesseract.image_to_string(
-                    binary_img, config=custom_config)
-                text = text.replace(" ", "")
-                text = text.replace("\r", "")
-                text = text.replace("\n", "")
-                text = text.strip()
-                if self.post_processing:
-                    text = text.capitalize()
-                list_result_OCR.append(str(i) + ":" + text)
-                if text == self.correct_text[i]:
+                if dist <= self.threshold_backlit:
                     cv.rectangle(result_img, start_point,
                                  end_point, self.green_color, thickness=2)
-                    pass_number = pass_number + 1
+                    pass_number += 1
                 else:
                     cv.rectangle(result_img, start_point,
                                  end_point, self.red_color, thickness=2)
-                    fail_number = fail_number + 1
-            print("Test Number ", i)
+                    fail_number += 1
+                    missing_backlit += 1
+                log_text = "ROI " + str(i) + " Cosine Distance : " + str(dist)
+            print(log_text)
+            list_result.append(log_text)
             inspection_img = cv.resize(result_img.copy(), (800, 600))
             inspection_img = cv.cvtColor(inspection_img, cv.COLOR_BGR2RGB)
             self.send_image_signal.emit(inspection_img)
-            progress_value = int((i/42.0) * 100.0)
+            progress_value = int((i/63.0) * 100.0)
             self.progress_value_signal.emit(progress_value)
-        self.save_result_OCR_signal.emit(list_result_OCR)
-        self.save_result_image_signal.emit(result_img)
-        self.inspection_result_signal.emit(True)
-        self.misplacement_result_signal.emit(10)
-        self.missing_backlit_result_signal.emit(50)
+        self.log_result_signal.emit(list_result)
+        self.log_result_image_signal.emit(result_img)
+        if fail_number == 0:
+            self.inspection_result_signal.emit(True)
+        else:
+            self.inspection_result_signal.emit(False)
+        self.misplacement_result_signal.emit(missplacement)
+        self.missing_backlit_result_signal.emit(missing_backlit)
         self.test_time_signal.emit(str(time.ctime()))
         self.inspection_finish.emit()
 

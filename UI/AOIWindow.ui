@@ -418,9 +418,9 @@ color: rgb(255, 255, 0);</string>
     <widget class="QLabel" name="labelTestTime">
      <property name="geometry">
       <rect>
-       <x>150</x>
+       <x>20</x>
        <y>270</y>
-       <width>281</width>
+       <width>411</width>
        <height>51</height>
       </rect>
      </property>
@@ -497,24 +497,6 @@ color: rgb(255, 255, 0);</string>
      </property>
      <property name="text">
       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Result&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelTestTimeInfo">
-     <property name="geometry">
-      <rect>
-       <x>20</x>
-       <y>270</y>
-       <width>121</width>
-       <height>51</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <pointsize>18</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:18pt; font-weight:600;&quot;&gt;Test Time&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
    </widget>
